@@ -1,5 +1,4 @@
 import json
-
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
@@ -7,6 +6,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from ads.models import Category, Advertisement
+from django.core.exceptions import ObjectDoesNotExist
 
 
 def index(request):
@@ -66,24 +66,30 @@ class AdvertisementsView(View):
 
 class AdvertisementView(View):
     def get(self, request, aid):
-        ad = Advertisement.objects.get(id=aid)
-        print(ad.name)
-        result = {
-                'id': ad.id,
-                'name': ad.name,
-                'author': ad.author,
-                'price': ad.price,
-                'description': ad.address,
-                'is_published': ad.is_published
-            }
-        return JsonResponse(result, status=200)
+        try:
+            ad = Advertisement.objects.get(id=aid)
+            print(ad)
+            result = {
+                    'id': ad.id,
+                    'name': ad.name,
+                    'author': ad.author,
+                    'price': ad.price,
+                    'description': ad.address,
+                    'is_published': ad.is_published
+                }
+            return JsonResponse(result, status=200)
+        except ObjectDoesNotExist:
+            return JsonResponse({'Not found': 'ok'}, status=404)
 
 
 class CategoryView(View):
     def get(self, request, cid):
-        category = Category.objects.get(id=cid)
-        result = {
-                'id': category.id,
-                'name': category.name,
-            }
-        return JsonResponse(result, status=200)
+        try:
+            category = Category.objects.get(id=cid)
+            result = {
+                    'id': category.id,
+                    'name': category.name,
+                }
+            return JsonResponse(result, status=200)
+        except ObjectDoesNotExist:
+            return JsonResponse({'Not found': 'ok'}, status=404)
