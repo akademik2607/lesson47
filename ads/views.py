@@ -1,17 +1,20 @@
 import json
 
 from django.core.paginator import Paginator
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import DetailView, ListView, CreateView, DeleteView, UpdateView
+from rest_framework.generics import CreateAPIView, ListAPIView, RetrieveAPIView, UpdateAPIView, DestroyAPIView
+from rest_framework.viewsets import ModelViewSet
 
 from ads.models import Category, Advertisement, User, Location
 from django.core.exceptions import ObjectDoesNotExist
 
+from ads.serializers import UserCreateSerializer, LocationSetSerializer, UserGetSerializer, UserUpdateSerializer
 from myavito import settings
 
 
@@ -22,6 +25,7 @@ def index(request):
 @method_decorator(csrf_exempt, name='dispatch')
 class CategoriesListView(ListView):
     model = Category
+
     def get(self, request, *args, **kwargs):
         super().get(request, args, kwargs)
         object_list = self.object_list.order_by('name')
@@ -92,7 +96,34 @@ class AdvertisementsListView(ListView):
     model = Advertisement
 
     def get(self, request, *args, **kwargs):
-        object_list = self.get_queryset().select_related('author', 'category').order_by('-price')
+        categories = request.GET.getlist('cat')
+        texts = request.GET.getlist('text')
+        locations = request.GET.getlist('location')
+        price_from = request.GET.get('price_from', None)
+        price_to = request.GET.get('price_to', None)
+        filter_params = Q()
+        if categories:
+            filter_params = Q(category__in=categories)
+
+        if texts:
+            for text in texts:
+                filter_params |= Q(name__icontains=text)
+
+        if locations:
+            for location in locations:
+                filter_params |= Q(author__locations__name__icontains=location)
+
+        if price_from:
+            filter_params &= Q(price__gte=price_from)
+        if price_to:
+            filter_params &= Q(price__lte=price_to)
+
+        object_list = self.get_queryset(). \
+            select_related('author', 'category'). \
+            filter(filter_params). \
+            order_by('-price')
+
+
         page = request.GET.get('page', 1)
         paginator = Paginator(object_list, settings.TOTAL_ON_PAGE)
         result = []
@@ -228,130 +259,43 @@ class AdvertisementDeleteView(DeleteView):
         return JsonResponse({"status": "ok"}, status=200)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class UserListView(ListView):
-    model = User
-
-    def get(self, request, *args, **kwargs):
-        self.object_list = self.get_queryset().prefetch_related('location').order_by('username')
+class UserListView(ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserGetSerializer
 
 
-        paginator = Paginator(self.object_list, settings.TOTAL_ON_PAGE)
-        page = request.GET.get('page', 1)
+class UserRetrieveView(RetrieveAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserGetSerializer
 
-        result = []
-        for user in paginator.get_page(page):
-            user.location.all()
-            total_ads = Advertisement\
-                .objects\
-                .filter(is_published=True, author=user)\
-                .aggregate(Count('author_id'))['author_id__count']
-            result.append({
-                'id': user.id,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'username': user.username,
-                'password': user.password,
-                'role': user.role,
-                'age': user.age,
-                'location': [i.name for i in user.location.all()],
-                'total_ads': total_ads
-            })
-        return JsonResponse({
-            'items': result,
-            'total': paginator.count,
-            'num_pages': paginator.num_pages,
-        })
 
-@method_decorator(csrf_exempt, name='dispatch')
-class UserDetailView(DetailView):
-    model = User
-
-    def get(self, request, *args, **kwargs):
-        super().get(request, args, kwargs)
-
-        return JsonResponse({
-            'id': self.object.id,
-            'first_name': self.object.first_name,
-            'last_name': self.object.last_name,
-            'username': self.object.username,
-            'password': self.object.password,
-            'role': self.object.role,
-            'age': self.object.age,
-            'location': [i.name for i in self.object.location.all()],
-        })
-
-@method_decorator(csrf_exempt, name='dispatch')
-class UserCreateView(CreateView):
-    model = User
-
-    def post(self, request, *args, **kwargs):
-        data = json.loads(request.body)
-        locations = Location.objects.filter(name__in=data.get('locations'))
-
-        user = User.objects.create(
-            username=data['username'],
-            password=data['password'],
-            first_name=data['first_name'],
-            last_name=data['last_name'],
-            role=data['role'],
-            age=data['age'],
-        )
-        if not locations:
-            for loc in data.get('locations'):
-                locations = Location.objects.create(name=loc)
-                user.location.add(locations)
-        user.save()
-        return JsonResponse({
-            'id': user.id,
-            'username': data['username'],
-            'password': data['password'],
-            'first_name': data['first_name'],
-            'last_name': data['last_name'],
-            'role': data['role'],
-            'age': data['age'],
-            'locations': data['locations']
-        })
+class UserCreateView(CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserCreateSerializer
 
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class UserUpdateView(UpdateView):
-    model = User
+class UserUpdateView(UpdateAPIView):
+     queryset = User.objects.all()
+     serializer_class = UserUpdateSerializer
 
-    def patch(self, request, *args, **kwargs):
-        data = json.loads(request.body)
-        locations = Location.objects.filter(name__in=data.get('locations'))
 
-        self.object = self.get_object()
-        self.object.first_name = data.get('first_name')
-        self.object.last_name = data.get('last_name')
-        self.object.username = data.get('username')
-        self.object.password = data.get('password')
-        self.object.role = data.get('role', 'member')
-        self.object.age = data.get('age')
-        self.object.location.set(locations)
-        self.object.save()
 
-        return JsonResponse({
-            'first_name': data.get('first_name'),
-            'last_name': data.get('last_name'),
-            'username': data.get('username'),
-            'password': data.get('password'),
-            'role': data.get('role'),
-            'age': data.get('age'),
-            'location': data.get('locations'),
-        }, status=200)
+class UserDestroyView(DestroyAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserGetSerializer
+    # model = User
+    # success_url = '/'
+    #
+    # def get(self, request, *args, **kwargs):
+    #     super().delete(request, args, kwargs)
+    #     return JsonResponse({'status': 'ok'}, status=200)
+    #
+    # def delete(self, request, *args, **kwargs):
+    #     super().delete(request, args, kwargs)
+    #     return JsonResponse({'status': 'ok'}, status=200)
 
-@method_decorator(csrf_exempt, name='dispatch')
-class UserDeleteView(DeleteView):
-    model = User
-    success_url = '/'
 
-    def get(self, request, *args, **kwargs):
-        super().delete(request, args, kwargs)
-        return JsonResponse({'status': 'ok'}, status=200)
-
-    def delete(self, request, *args, **kwargs):
-        super().delete(request, args, kwargs)
-        return JsonResponse({'status': 'ok'}, status=200)
+class LocationViewSet(ModelViewSet):
+    queryset = Location.objects.all()
+    serializer_class = LocationSetSerializer

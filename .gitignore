@@ -1,3 +1,5 @@
 .idea/
 .project
-ads/__pycache__/views.cpython-310.pyc
+ads/__pycache__/
+./venv
+./venv/*
