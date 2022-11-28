@@ -80,7 +80,7 @@ class Command(BaseCommand):
                     age=row['age'],
                 )
                 user.save()
-                user.location.add(Location.objects.get(pk=row['location_id']))
+                user.locations.add(Location.objects.get(pk=row['location_id']))
 
                 results.append(user)
             # User.objects.bulk_create(results)
