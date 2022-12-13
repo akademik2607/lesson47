@@ -1,4 +1,5 @@
 from django.db import models
+from authentication.models import User
 
 
 class Category(models.Model):
@@ -10,42 +11,6 @@ class Category(models.Model):
 
     def __str__(self):
         return self.name
-
-
-class Location(models.Model):
-    name = models.CharField(max_length=200, verbose_name='Название')
-    lat = models.FloatField(max_length=50, verbose_name='Широта', null=True, blank=True)
-    lng = models.FloatField(max_length=50, verbose_name='Долгота', null=True, blank=True)
-
-    class Meta:
-        verbose_name = 'Локация'
-        verbose_name_plural = 'Локации'
-
-    def __str__(self):
-        return self.name
-
-
-class User(models.Model):
-    STATUS = [
-        ('member', 'участник'),
-        ('moderator', 'модератор'),
-        ('admin', 'админ')
-    ]
-    first_name = models.CharField(max_length=100, verbose_name='Имя')
-    last_name = models.CharField(max_length=100, verbose_name='Фамилия')
-    username = models.CharField(max_length=100, verbose_name='Логин')
-    password = models.CharField(max_length=15, verbose_name='Пароль')
-    role = models.CharField(max_length=9, choices=STATUS, verbose_name='Роль')
-    age = models.IntegerField(verbose_name='Возраст')
-    locations = models.ManyToManyField(Location, verbose_name='Локация', blank=True)
-
-    class Meta:
-        verbose_name = 'Пользователь'
-        verbose_name_plural = 'Пользователи'
-
-
-    def __str__(self):
-        return self.username
 
 
 class Advertisement(models.Model):
@@ -60,6 +25,19 @@ class Advertisement(models.Model):
     class Meta:
         verbose_name = 'Объявление'
         verbose_name_plural = 'Объявления'
+
+    def __str__(self):
+        return self.name
+
+
+class Selection(models.Model):
+    items = models.ManyToManyField(Advertisement, verbose_name='подборка', blank=True)
+    name = models.CharField(max_length=200, verbose_name='название')
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='автор', blank=True)
+
+    class Meta:
+        verbose_name = 'Подборка'
+        verbose_name_plural = 'Подборки'
 
     def __str__(self):
         return self.name

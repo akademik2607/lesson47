@@ -1,7 +1,8 @@
 from django.core.management.base import BaseCommand
 import csv
 
-from ads.models import Advertisement, Category, Location, User
+from ads.models import Advertisement, Category
+from authentication.models import User, Location
 
 
 class Command(BaseCommand):
@@ -71,7 +72,7 @@ class Command(BaseCommand):
             results = []
             for row in rows:
                 user = User(
-                    id=row['id'],
+                    id=(int(row['id']) + 1),
                     first_name=row['first_name'],
                     last_name=row['last_name'],
                     username=row['username'],
