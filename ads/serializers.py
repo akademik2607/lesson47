@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from ads.models import Category, Advertisement, Selection
-from authentication.models import User
+from ads.validators import is_false_validator
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -11,6 +11,16 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class AdvertisementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Advertisement
+        fields = '__all__'
+
+
+class AdvertisementCreateSerializer(serializers.ModelSerializer):
+    is_published = serializers.BooleanField(
+        validators=[is_false_validator]
+    )
+
     class Meta:
         model = Advertisement
         fields = '__all__'

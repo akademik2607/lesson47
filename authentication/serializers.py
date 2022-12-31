@@ -1,7 +1,8 @@
-
+from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
 
 from authentication.models import User,Location
+from authentication.validators import UserAgeValidator, IsBlockedDomain
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
@@ -12,6 +13,11 @@ class UserCreateSerializer(serializers.ModelSerializer):
         slug_field='name',
         queryset=Location.objects.all()
     )
+    birth_date = serializers.DateField(
+        required=True,
+        validators=[UserAgeValidator]
+    )
+    email = serializers.EmailField(validators=[IsBlockedDomain(['rambler.ru'])])
 
     class Meta:
         model = User
@@ -22,11 +28,14 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
         return super().is_valid(raise_exception=raise_exception)
 
+
+
     def create(self, validate_data):
         user = super().create(validate_data)
         for location in self._locations:
             loc_data, _ = Location.objects.get_or_create(name=location)
             user.locations.add(loc_data)
+        user.password = make_password(user.password)
         user.save()
 
         return user

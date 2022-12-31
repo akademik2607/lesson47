@@ -1,22 +1,21 @@
-import json
 
-from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import DetailView, ListView, CreateView, DeleteView, UpdateView
-from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, UpdateAPIView, DestroyAPIView
+from django.views.generic import UpdateView
+from rest_framework import mixins
+from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, UpdateAPIView, DestroyAPIView, \
+    GenericAPIView
 from rest_framework.permissions import IsAuthenticated
 
 
 from ads.models import Category, Advertisement, Selection
 from ads.serializers import CategorySerializer, AdvertisementSerializer, SelectionCreateSerializer, \
-    SelectionListSerializer, SelectionRetrieveSerializer
-from authentication.models import User
+    SelectionListSerializer, SelectionRetrieveSerializer, AdvertisementCreateSerializer
+
 from authentication.permissions import IsAuthor, IsAuthorOrModerator
 
-from myavito import settings
 
 
 def index(request):
@@ -86,13 +85,30 @@ class AdvertisementsListView(ListAPIView):
 
 class AdvertisementCreateView(CreateAPIView):
     queryset = Advertisement.objects.all()
-    serializer_class = AdvertisementSerializer
+    serializer_class = AdvertisementCreateSerializer
 
 
 class AdvertisementRetrieveView(RetrieveAPIView):
     queryset = Advertisement.objects.all()
     serializer_class = AdvertisementSerializer
     permission_classes = [IsAuthenticated]
+
+
+class AdvertisementCreateListView(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    GenericAPIView
+    ):
+
+    queryset = Advertisement.objects.all()
+    serializer_class = AdvertisementSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
 
 
 class AdvertisementUpdateView(UpdateAPIView):
@@ -131,6 +147,18 @@ class AdvertisementDestroyView(DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAuthorOrModerator]
 
 
+class SelectionCreateListView(mixins.ListModelMixin, mixins.CreateModelMixin, GenericAPIView):
+    queryset = Selection.objects.all()
+    serializer_class = SelectionCreateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
+
+
 class SelectionListView(ListAPIView):
     queryset = Selection.objects.all()
     serializer_class = SelectionListSerializer
@@ -146,10 +174,6 @@ class SelectionCreateView(CreateAPIView):
     serializer_class = SelectionCreateSerializer
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
-        self.queryset
-
-        return super().post(request, *args, **kwargs)
 
 
 class SelectionUpdateView(UpdateAPIView):
