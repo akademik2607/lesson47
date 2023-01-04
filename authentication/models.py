@@ -17,13 +17,13 @@ class Location(models.Model):
 
 
 class User(AbstractUser):
-    STATUS = [
+    ROLES = [
         ('member', 'участник'),
         ('moderator', 'модератор'),
         ('admin', 'админ')
     ]
 
-    role = models.CharField(max_length=9, choices=STATUS, verbose_name='Роль')
+    role = models.CharField(max_length=9, choices=ROLES, verbose_name='Роль')
     age = models.IntegerField(verbose_name='Возраст', blank=True, null=True)
     locations = models.ManyToManyField(Location, verbose_name='Локация', blank=True)
     birth_date = models.DateField(verbose_name='дата рождения', default='1990-01-01')
